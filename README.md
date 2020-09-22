@@ -10,6 +10,7 @@
 ## License
 
 - **[MIT license](http://opensource.org/licenses/mit-license.php)**
+- **[NLTK license](https://www.apache.org/licenses/LICENSE-2.0)**
 
 WordNet Release 3.0
 

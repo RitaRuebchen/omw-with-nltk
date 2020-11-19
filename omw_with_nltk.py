@@ -1,24 +1,15 @@
 
 # coding: utf-8
 
-# In[ ]:
-
-
-#=============================================================
-# Title:  Compare two languages with Open Multilingual Wordnet
-# Content: functions to calculate the whole hypernym chain, their lemmas and keys
-# Author: RitaRuebchen
-# Date:   September 2020
-#=============================================================
-
-
 # In[1]:
 
 
+import pandas as pd
 import nltk
 #nltk.download('omw')
 from nltk.corpus import wordnet as wn
 from itertools import chain
+import sys
 
 
 # In[2]:
@@ -43,6 +34,55 @@ def hypernym_chain(s):
 # In[3]:
 
 
+# read in mapping data
+data = pd.read_table('wn30map31.txt', delimiter='\t', skiprows = 7)
+mapp = pd.DataFrame(data)
+
+# convert columns to lists
+wn31 = mapp['WordNet 3.1'].tolist()
+wn3 = mapp['WordNet 3.0'].tolist()
+
+wn31 = [str(x).zfill(8) for x in wn31]
+wn3 = [str(x).zfill(8) for x in wn3]
+
+# read in cili (source: https://lr.soh.ntu.edu.sg/omw/ili)
+cili = pd.read_table('cili.tsv')
+cili = pd.DataFrame(cili)
+
+iliId = cili['ili_id'].tolist()
+iliDef = cili['definition'].tolist()
+
+# map two columns of a list
+def f(a,b,c):
+    return c[b.index(a)]
+
+
+# In[4]:
+
+
+def ciliFromDefinition(chainDef):
+    if chainDef in iliDef:
+        print('ili-ID: ',f(chainDef,iliDef,iliId))
+    else: print('ili-ID: Not in list')
+
+
+# In[5]:
+
+
+def offsetFromSynset(chain):
+    "returns the offset-IDs for a chain of Synset as a list"
+    #lchain = len(chain)
+    #for i in range(lchain):
+    hyperOffsets = []
+    hyperOffsets = str(chain.offset()).zfill(8)
+    print('Offset-ID(3.0): ',hyperOffsets)
+    print('Offset-ID(3.1): ',f(hyperOffsets,wn3,wn31))
+    return hyperOffsets  
+
+
+# In[6]:
+
+
 def key_chain(lem):
     "computes all sense-keys for all lemmata in a list"
     "lem: lemmas() of a synset"
@@ -50,18 +90,17 @@ def key_chain(lem):
     if lem is not None:
         for index in range(len(lem)):
             if lem[index].key() is not None:
-                #keys = [] 
                 keys = lem[index].key()
                 print('Keys: ',keys)
             else: print('Keys: None')
         return keys
 
 
-# In[4]:
+# In[7]:
 
 
-def lemmata_chain(chain, l='eng'):
-    "computes all lemmata and their keys for each level of a hypernym_chain"
+def info_chain(chain, l='eng'):
+    "computes all lemmata, their keys and offset-IDs for each level of a hypernym_chain"
     "chain: a hypernym_chain()"
     "l: an omw language"
     for index in range(len(chain)):
@@ -69,10 +108,13 @@ def lemmata_chain(chain, l='eng'):
         lem += chain[index].lemmas(l)
         print('Level '+ str(index+1) + ':')
         print('HyperLemmata: ',lem)
-        key_chain(lem)
+        print('Definition: ' + str(chain[index].definition()))
+        #key_chain(lem)
+        offsetFromSynset(chain[index])
+        ciliFromDefinition(chain[index].definition())
 
 
-# In[5]:
+# In[8]:
 
 
 def omw_lang(w, p=None, l='eng', ln=None):
@@ -84,7 +126,9 @@ def omw_lang(w, p=None, l='eng', ln=None):
     for synset in wn.synsets(w, lang=l, pos=p):
         if synset.lexname() == ln:
             print('Synset: ' + str(synset))
-            print('Offset: ' + str(synset.offset()))
+            print('Offset 3.0: ' + str(synset.offset()).zfill(8))
+            print('Offset 3.1: ' + f(str(synset.offset()).zfill(8),wn3,wn31))
+            ciliFromDefinition(synset.definition())
             print('Type: ' + str(synset.pos()))
             print('LexName: ' + str(synset.lexname()))
             print('Lemmata: ' + str(synset.lemma_names(l)))
@@ -92,13 +136,15 @@ def omw_lang(w, p=None, l='eng', ln=None):
             print('Examples: ' + str(synset.examples()))
             for hyper in synset.hypernyms():
                 chain = hypernym_chain(synset.hypernyms())
-                chain.insert(0,hyper)
+                chain.insert(0,hyper)     
                 print('Hypernyms: ' + str(chain))
-                lemmata_chain(chain,l)
+                info_chain(chain,l)
             print('------------------------------------------------------------------------------------------------------------')
         if ln == None:
             print('Synset: ' + str(synset))
-            print('Offset: ' + str(synset.offset()))
+            print('Offset 3.0: ' + str(synset.offset()).zfill(8))
+            print('Offset 3.1: ' + f(str(synset.offset()).zfill(8),wn3,wn31))
+            ciliFromDefinition(synset.definition())
             print('Type: ' + str(synset.pos()))
             print('LexName: ' + str(synset.lexname()))
             print('Lemmata: ' + str(synset.lemma_names(l)))
@@ -108,48 +154,47 @@ def omw_lang(w, p=None, l='eng', ln=None):
                 chain = hypernym_chain(synset.hypernyms())
                 chain.insert(0,hyper)
                 print('Hypernyms: ' + str(chain))
-                lemmata_chain(chain,l)
+                info_chain(chain,l)
             print('------------------------------------------------------------------------------------------------------------')
 
 
-# In[6]:
+# In[10]:
 
 
 # Test examples
 
 #spanish words
-s=['avanzar', 'mover', 'irse', 'llegar', 'salir', 'subir', 'bajar', 
-  'trepar', 'acercarse', 'gatear', 'subir', 'saltarse', 'caerse',
-  'pasear', 'llevar', 'seguir', 'perseguir', 'ir_tras', 'salirse',
-  'bajarse', 'subirse']
+s=['avanzar', 'mover', 'irse']
 
 #english words
-e=['advance', 'move', 'journey', 'arrive_at', 'bolt_out', 'climb_up',
-  'climb_down', 'climb', 'approach', 'crawl_up', 'roll_up',
-  'skip_over', 'fall_off', 'cruise_around', 'lead', 'follow',
-  'pursue', 'chase', 'hop_off', 'hop_out', 'hop_in']
+e=['advance', 'move', 'journey']
 
 
-# In[7]:
+# In[11]:
 
 
 # Compare English and Spanish senses and hierarchies:
+#sys.stdout = open("SpEng.txt", "w")
+
 for i,(spa,eng) in enumerate(zip(s,e)):
-    print('____________________________________________________________________________________________________________________')
+    print('___________________________________________________________________________________________________________________')
     print([i], 'SPANISH ' + spa)
     omw_lang(spa,'v','spa','verb.motion')
     print([i], 'ENGLISH ' + eng)
     omw_lang(eng,'v','eng','verb.motion')
+    
+#sys.stdout.close()
+    
 
 
-# In[8]:
+# In[14]:
 
 
-m=['要','吃',' 喝', '拿']
-e=['want', 'eat', 'drink', 'take']
+m=['要','吃']
+e=['want', 'eat']
 
 
-# In[9]:
+# In[15]:
 
 
 # it does also work for Mandarin:
@@ -162,7 +207,7 @@ for i,(mand,eng) in enumerate(zip(m,e)):
     omw_lang(eng,'v','eng')#,'verb.motion')
 
 
-# In[10]:
+# In[16]:
 
 
 # Example for a NOUN:
